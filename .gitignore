@@ -4,3 +4,4 @@ chroma_db
 __pycache__
 finsight.db
 *.pyc
+.streamlit/secrets.toml

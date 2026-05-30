@@ -8,8 +8,37 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import streamlit as st
 
-from ingest import get_stock_data
+# Inject Streamlit Cloud secrets into env so all modules read them via os.getenv
+try:
+    for _key in ("NEWSAPI_KEY", "GROQ_API_KEY"):
+        if _key in st.secrets and not os.environ.get(_key):
+            os.environ[_key] = st.secrets[_key]
+except Exception:
+    pass  # running locally — .env handled by load_dotenv() inside each module
+
+from ingest import get_stock_data, main as run_ingest
+from vectorstore import build_vectorstore
 from rag import answer_question
+
+
+# ---------------------------------------------------------------------------
+# Auto-initialise on first deploy (finsight.db and chroma_db won't exist)
+# ---------------------------------------------------------------------------
+
+@st.cache_resource(show_spinner=False)
+def initialize():
+    db_missing = not os.path.exists("finsight.db")
+    chroma_missing = not os.path.exists("chroma_db") or not os.listdir("chroma_db")
+
+    if db_missing:
+        run_ingest()
+
+    if db_missing or chroma_missing:
+        build_vectorstore()
+
+
+with st.spinner("Loading FinSight…"):
+    initialize()
 
 # ---------------------------------------------------------------------------
 # Page config
